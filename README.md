@@ -1,11 +1,16 @@
 # xilinx-axicdma
 
+A zero-copy Linux driver and a userspace interface library for Xilinx's AXI CDMA. It bridges the high-throughput transfers between the PS and FPGA PL fabric on the ZynqMP processing system.
+
 Xilinx AXI CDMA character-device driver and a small user-space library that wraps the driver to provide simple, convenient APIs for moving data between PS DDR and PL BRAM on Xilinx Zynq/ZynqMP systems.
 
 This repository contains two primary components:
 
 - Kernel character device driver: `driver/axi_cdma.c` — exposes `/dev/axicdma<N>` device nodes and supports mmap-based DMA buffer allocation, ioctl-based transfers, and registering external dma-buf buffers.
 - User-space library: `src/libaxicdma.c` with header `include/axicdma/libaxicdma.h` — a thin wrapper that provides easy-to-use functions: `axicdma_init`, `axicdma_malloc`, `axicdma_transfer`, `axicdma_register_buffer`, and `axicdma_close`.
+
+Buffers
+- The driver exposes DMA-capable, contiguous, coherent buffers from kernel to userspace via mmap. These buffers are suitable for zero-copy DMA transfers between PS DDR and PL BRAM and are the primary mechanism used by the library and examples in this repo.
 
 License: GPL-2.0
 
@@ -23,11 +28,11 @@ The driver matches the compatible string `axicdma-chrdev`. The driver expects a 
 
 ```
 axicdma@... {
-	compatible = "axicdma-chrdev";
-	reg = <...>; /* device registers */
-	bram = <0x00000000 0xNNNNNNNN  /* base (u64) */
-			0x00000000 0xMMMMMMMM>; /* size (u64) */
-	interrupts = <...>;
+    compatible = "axicdma-chrdev";
+    reg = <...>; /* device registers */
+    bram = <0x00000000 0xNNNNNNNN  /* base (u64) */
+            0x00000000 0xMMMMMMMM>; /* size (u64) */
+    interrupts = <...>;
 };
 ```
 
@@ -36,8 +41,6 @@ Adjust the exact formatting to your DT convention; the driver reads `bram[0]` as
 ## Building the user-space library
 
 The repository includes a simple Makefile that builds a position-independent shared library for user-space usage.
-
-
 
 Build userspace library (native build):
 
@@ -60,8 +63,6 @@ Include the header in your code with:
 ## Kernel driver: notes for building and installing
 
 This repo contains the kernel driver source in `driver/axi_cdma.c`. It is not packaged as a full kernel module build system here. You can build it as an out-of-tree module against your kernel build directory or integrate into your kernel tree.
-
-
 
 Driver (out-of-tree) build
 
@@ -86,7 +87,7 @@ Cross-compile example (aarch64 target):
 make driver KERNEL_DIR=/path/to/kernel/build CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm64
 ```
 
-The built module object appears under `driver/` as produced by the kernel build system (for example `driver/axi_cdma.ko` or similar). Install with:
+The built module object appears under `driver/` as produced by the kernel build system (for example `driver/axi_cdma.ko` or similar).
 
 Petalinux Driver Build example:
 
@@ -108,7 +109,7 @@ Then, replace the first line of the Makefile at <path/to/PetaLinux/project>/proj
 DRIVER_NAME = xilinx-axicdma
 $(DRIVER_NAME)-objs = axi_dma.o
 obj-m := $(DRIVER_NAME).o
-````
+```
 
 The module will be packaged with your rootfs image, and you can find the kernel object file under /lib/modules/$(shell uname -r)/extra/xilinx-axicdma.ko.
 
@@ -146,6 +147,8 @@ axicdma_transfer(h, buf, bram_offset, length, AXICDMA_PS_TO_PL); //AXICDMA_PS_TO
 axicdma_free(h, buf);
 axicdma_close(h);
 ```
+
+You can inspect `driver/axi_cdma.c`, `src/libaxicdma.c`, and `include/axicdma/libaxicdma.h` for implementation details and to better understand how mmap/exposed buffers and ioctls are used.
 
 ## IOCTLs and behaviour
 
