@@ -88,10 +88,32 @@ make driver KERNEL_DIR=/path/to/kernel/build CROSS_COMPILE=aarch64-linux-gnu- AR
 
 The built module object appears under `driver/` as produced by the kernel build system (for example `driver/axi_cdma.ko` or similar). Install with:
 
+Petalinux Driver Build example:
+
+Create a petalinux app in your build
+```bash
+petalinux-create -t modules -n xilinx-axicdma --enable
+```
+
+Next, copy all of the C source files and header files under the driver directory to the driver source directory, and remove the auto-generated file there:
 
 ```bash
-sudo insmod driver/axi_cdma.ko
-# or use modprobe after copying to a modules directory and running depmod
+cp -a driver/*.c driver/*.h <path/to/PetaLinux/project>/project-spec/meta-user/recipes-modules/xilinx-axicdma/files
+rm <path/to/PetaLinux/project>/project-spec/meta-user/recipes-modules/xilinx-axicdma/files/xilinx-axicdma.c
+```
+
+Then, replace the first line of the Makefile at <path/to/PetaLinux/project>/project-spec/meta-user/recipes-modules/xilinx-axidma/files/Makefile with the following:
+
+```bash
+DRIVER_NAME = xilinx-axicdma
+$(DRIVER_NAME)-objs = axi_dma.o
+obj-m := $(DRIVER_NAME).o
+````
+
+The module will be packaged with your rootfs image, and you can find the kernel object file under /lib/modules/$(shell uname -r)/extra/xilinx-axicdma.ko.
+
+```bash
+sudo insmod /lib/modules/$(shell uname -r)/extra/xilinx-axicdma.ko
 ```
 
 On success the driver creates device nodes named `/dev/axicdma0`, `/dev/axicdma1`, ...
@@ -110,13 +132,12 @@ axicdma_handle_t h = axicdma_init("/dev/axicdma0");
 
 ```c
 void *buf = axicdma_malloc(h, size); // returns userspace pointer (mmap)
-// write data into buf if doing PS->PL transfer
 ```
 
 3. Perform a transfer:
 
 ```c
-axicdma_transfer(h, buf, bram_offset, length, AXICDMA_PS_TO_PL);
+axicdma_transfer(h, buf, bram_offset, length, AXICDMA_PS_TO_PL); //AXICDMA_PS_TO_PL (MM2S) or AXICDMA_PL_TO_PS (for S2MM)
 ```
 
 4. Free and close:
@@ -125,8 +146,6 @@ axicdma_transfer(h, buf, bram_offset, length, AXICDMA_PS_TO_PL);
 axicdma_free(h, buf);
 axicdma_close(h);
 ```
-
-Advanced: If you already have a dma-buf (from another driver) you can call `axicdma_register_buffer()` with the dma-buf FD and the userspace address to let the driver use that buffer for transfers. The driver currently requires the external buffer to be a single physically-contiguous region (single sg entry).
 
 ## IOCTLs and behaviour
 
@@ -144,7 +163,7 @@ The kernel driver programs the CDMA registers and waits for an interrupt (IOC or
 
 ## Contributing and contact
 
-If you find bugs or want to propose improvements (multi-segment SG support, pinning arbitrary user pages, safer validation, a full Kbuild), please open an issue or submit a pull request.
+If you find bugs or want to propose improvements, please open an issue or submit a pull request.
 
 Author: Sujan
 
