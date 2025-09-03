@@ -1,0 +1,13 @@
+.vscode/
+
+# Build artifacts
+build/
+*.o
+*.so
+*.a
+*.ko
+
+# Editor/temp files
+*.swp
+*~
+.DS_Store
